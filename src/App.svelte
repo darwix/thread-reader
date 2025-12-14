@@ -115,7 +115,7 @@
 {:else}
   <div class="app">
     {#if $router.path === '/' || $router.path === ''}
-      <Header onAddThread={openAddModal} />
+      <Header />
       
       <main class="main-layout">
         <Sidebar />
@@ -123,14 +123,33 @@
         <section class="content-section">
           <div class="section-header">
             <h2>{getFilterTitle($currentFilter)}</h2>
-            <div class="sort-controls">
-              <label for="sort-select" class="sort-label">Sort by:</label>
-              <select id="sort-select" class="sort-select" bind:value={$currentSort}>
-                <option value="date-desc">Newest First</option>
-                <option value="date-asc">Oldest First</option>
-                <option value="author">By Author</option>
-                <option value="length">By Length</option>
-              </select>
+            <div class="controls-group">
+              {#if $currentFilter === 'series'}
+                <button class="btn btn-primary btn-sm" on:click={openCreateSeriesModal}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  New Series
+                </button>
+              {:else}
+                <button class="btn btn-primary btn-sm" on:click={openAddModal}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Add Thread
+                </button>
+              {/if}
+              <div class="sort-controls">
+                <label for="sort-select" class="sort-label">Sort by:</label>
+                <select id="sort-select" class="sort-select" bind:value={$currentSort}>
+                  <option value="date-desc">Newest First</option>
+                  <option value="date-asc">Oldest First</option>
+                  <option value="author">By Author</option>
+                  <option value="length">By Length</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -244,6 +263,20 @@
     padding: var(--space-xs) var(--space-md);
     font-size: 0.9rem;
     cursor: pointer;
+  }
+
+  .controls-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .btn-sm {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
   }
 
   .thread-grid {

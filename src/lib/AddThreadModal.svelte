@@ -41,6 +41,7 @@
   
     let autofilling = false;
     let isSaving = false;
+    let fetchedCount = 0;
     let saveError = '';
     let showManualInput = false;
   
@@ -58,7 +59,8 @@
       try {
         autofilling = true;
         let iterations = 0;
-        const MAX_TWEETS = 30; // Safety limit
+        fetchedCount = 0;
+        const MAX_TWEETS = import.meta.env.VITE_MAX_TWEETS ? parseInt(import.meta.env.VITE_MAX_TWEETS) : 400;
         let hasParent = true;
   
         while (hasParent && iterations < MAX_TWEETS) {
@@ -82,6 +84,7 @@
   
             // Add to beginning of array since we are going backwards
             threadTweets.unshift(tweet);
+            fetchedCount = threadTweets.length;
   
             // Check for parent
             if (tweet.replying_to_status) {
@@ -275,7 +278,7 @@
               disabled={!url || autofilling || isSaving}
             >
               {#if autofilling}
-                <span class="loading-dots">Fetching</span>
+                <span class="loading-dots">Fetching {fetchedCount > 0 ? `(${fetchedCount})` : ''}</span>
               {:else}
                 Autofill
               {/if}
@@ -335,7 +338,7 @@
             {#each tags as tag}
                 <div class="tag-pill">
                     #{tag}
-                    <button type="button" class="remove-tag" on:click={() => removeTag(tag)}>
+                    <button type="button" class="remove-tag" on:click={() => removeTag(tag)} aria-label="Remove tag {tag}">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -448,27 +451,7 @@
       align-items: center;
   }
 
-  .btn-text {
-      background: none;
-      border: none;
-      color: var(--color-primary);
-      font-size: 0.8rem;
-      cursor: pointer;
-      padding: 0;
-  }
 
-  .btn-text:hover {
-      text-decoration: underline;
-  }
-
-  .content-preview {
-      padding: var(--space-md);
-      background: var(--color-bg-secondary);
-      border: 1px dashed var(--color-border);
-      border-radius: var(--radius-md);
-      color: var(--color-text-secondary);
-      font-size: 0.9rem;
-  }
 
   label {
     font-weight: 600;

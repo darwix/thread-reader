@@ -1,6 +1,6 @@
 <script lang="ts">
   import { supabase } from './supabase';
-  export let onAddThread: () => void;
+
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -19,12 +19,6 @@
     <div class="header-actions">
       <button class="btn btn-secondary" on:click={handleSignOut}>
         Sign Out
-      </button>
-      <button class="btn btn-primary" on:click={onAddThread}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span>Add Thread</span>
       </button>
     </div>
   </div>
@@ -82,8 +76,6 @@
       font-size: 1.25rem;
     }
 
-    .btn span {
-      display: none;
-    }
+
   }
 </style>

@@ -4,9 +4,23 @@
   import { router } from './router';
   import { threads, type Thread } from './store';
   import './ThreadReader.css';
-  
+
   export let id: string | undefined = undefined; 
   export let thread: Thread | null = null; 
+
+  let loadingPage = false; 
+
+  async function preloadImages(urls: string[]) {
+    const promises = urls.map(url => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = url;
+            img.onload = resolve;
+            img.onerror = resolve; // Continue even if one fails
+        });
+    });
+    await Promise.all(promises);
+  } 
 
   let currentIndex = 0; // 0 represents the cover page (First Tweet)
   let direction = 1; // 1 for next, -1 for prev
@@ -44,6 +58,9 @@
       displayTitle = thread.title;
   }
 
+  $: currentTweet = thread ? thread.tweets[currentIndex] : null;
+  $: currentLink = currentTweet ? extractFirstLink(currentTweet.content) : null;
+
   function handleClose() {
       router.navigate('/');
   }
@@ -62,8 +79,17 @@
     }
   }
 
-  function nextPage() {
-    if (!thread || currentIndex >= thread.tweets.length - 1) return;
+  async function nextPage() {
+    if (!thread || currentIndex >= thread.tweets.length - 1 || loadingPage) return;
+    
+    // Check if next page has images
+    const nextTweet = thread.tweets[currentIndex + 1];
+    if (nextTweet && nextTweet.mediaUrls && nextTweet.mediaUrls.length > 0) {
+        loadingPage = true;
+        await preloadImages(nextTweet.mediaUrls);
+        loadingPage = false;
+    }
+
     direction = 1;
     currentIndex++;
     updateProgress();
@@ -99,8 +125,32 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (zoomedImage) {
-        if (event.key === 'Escape') closeImage();
+    if (zoomedImage && thread) {
+        if (event.key === 'Escape') {
+            closeImage();
+            return;
+        }
+
+        const activeTweet = thread.tweets[currentIndex];
+        const images = activeTweet.mediaUrls || [];
+        
+        if (images.length > 1) {
+            const currentImgIndex = images.indexOf(zoomedImage);
+            
+            if (event.key === 'ArrowRight') {
+                event.preventDefault(); // Prevent page navigation/scroll
+                const nextIndex = currentImgIndex + 1;
+                if (nextIndex < images.length) {
+                    zoomedImage = images[nextIndex];
+                }
+            } else if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                const prevIndex = currentImgIndex - 1;
+                if (prevIndex >= 0) {
+                    zoomedImage = images[prevIndex];
+                }
+            }
+        }
         return;
     }
 
@@ -150,13 +200,13 @@
         </svg>
       </button>
       <div class="reader-actions">
-          <button class="btn-icon" on:click={() => threads.toggleFavorite(thread.id)} title={thread.isFavorite ? "Unfavorite" : "Favorite"}>
+          <button class="btn-icon" on:click={() => thread && threads.toggleFavorite(thread.id)} title={thread.isFavorite ? "Unfavorite" : "Favorite"}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill={thread.isFavorite ? "currentColor" : "none"} stroke="currentColor" class="icon {thread.isFavorite ? 'favorite-active' : ''}">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
           
-          <button class="btn-icon" on:click={() => threads.toggleArchive(thread.id)} title={thread.isArchived ? "Unarchive" : "Archive"}>
+          <button class="btn-icon" on:click={() => thread && threads.toggleArchive(thread.id)} title={thread.isArchived ? "Unarchive" : "Archive"}>
              <svg width="20" height="20" viewBox="0 0 24 24" fill={thread.isArchived ? "currentColor" : "none"} stroke="currentColor" class="icon {thread.isArchived ? 'archive-active' : ''}">
                 <path d="M21 8v13H3V8M1 3h22v5H1V3zM10 12h4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
              </svg>
@@ -171,6 +221,11 @@
     </header>
 
     <main class="book-container">
+      {#if loadingPage}
+          <div class="page-loader" transition:fade={{ duration: 200 }}>
+              <div class="spinner-large"></div>
+          </div>
+      {/if}
       {#key currentIndex}
         <div 
           class="book-page"
@@ -182,7 +237,7 @@
              <div class="page-cover">
                 {#if thread.tweets[0].mediaUrls && thread.tweets[0].mediaUrls.length > 0}
                     <!-- svelte-ignore a11y-click-events-have-key-events -->
-                    <div class="cover-image-container" on:click={() => openImage(thread.tweets[0].mediaUrls[0])} role="button" tabindex="0" style="cursor: zoom-in;">
+                    <div class="cover-image-container" on:click={() => thread?.tweets[0].mediaUrls && openImage(thread.tweets[0].mediaUrls[0])} role="button" tabindex="0" style="cursor: zoom-in;">
                         <img src={thread.tweets[0].mediaUrls[0]} alt="Cover" class="cover-image" />
                     </div>
                 {/if}
@@ -216,9 +271,8 @@
                  <div class="page-watermark">{currentIndex + 1}</div>
                  <div class="tweet-text">{@html formatContent(thread.tweets[currentIndex].content)}</div>
                  
-                 {#if extractFirstLink(thread.tweets[currentIndex].content)}
-                    {@const link = extractFirstLink(thread.tweets[currentIndex].content)}
-                    <a href={link} target="_blank" rel="noopener noreferrer" class="link-preview-card">
+                 {#if currentLink}
+                    <a href={currentLink} target="_blank" rel="noopener noreferrer" class="link-preview-card">
                         <div class="link-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -226,8 +280,8 @@
                             </svg>
                         </div>
                         <div class="link-info">
-                            <div class="link-domain">{getDomain(link)}</div>
-                            <div class="link-url">{link}</div>
+                            <div class="link-domain">{getDomain(currentLink)}</div>
+                            <div class="link-url">{currentLink}</div>
                         </div>
                         <div class="link-arrow">
                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -237,7 +291,7 @@
                     </a>
                  {/if}
                  
-                 {#if thread.tweets[currentIndex].mediaUrls && thread.tweets[currentIndex].mediaUrls.length > 0}
+                 {#if thread?.tweets[currentIndex]?.mediaUrls?.length}
                     <div class="tweet-media-grid">
                         {#each thread.tweets[currentIndex].mediaUrls as url}
                             <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -268,10 +322,14 @@
             </div>
         </div>
 
-        <button class="control-btn" on:click={nextPage} disabled={currentIndex >= thread.tweets.length - 1} title="Next Page">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="icon">
-                <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+        <button class="control-btn" on:click={nextPage} disabled={currentIndex >= thread.tweets.length - 1 || loadingPage} title="Next Page">
+            {#if loadingPage}
+                <div class="spinner-small"></div>
+            {:else}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="icon">
+                    <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            {/if}
         </button>
     </div>
     
@@ -292,10 +350,8 @@
     <!-- Delete Confirmation Modal -->
     {#if showDeleteModal}
         <div class="modal" role="dialog" aria-modal="true">
-            <div class="modal-overlay" on:click={() => showDeleteModal = false}></div>
-            <!-- svelte-ignore a11y-click-events-have-key-events -->
-            <!-- svelte-ignore a11y-no-static-element-interactions -->
-            <div class="modal-content delete-modal" on:click|stopPropagation>
+            <div class="modal-overlay" on:click={() => showDeleteModal = false} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && (showDeleteModal = false)} aria-label="Close modal"></div>
+            <div class="modal-content delete-modal" on:click|stopPropagation role="document">
                 <h3>Delete Thread?</h3>
                 <p>Are you sure you want to delete this thread? This action cannot be undone.</p>
                 <div class="modal-actions">
