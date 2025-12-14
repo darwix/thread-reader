@@ -1,0 +1,287 @@
+import { derived, writable } from 'svelte/store';
+import { supabase } from './supabase';
+
+export interface Tweet {
+  id: string;
+  content: string;
+  order: number;
+  mediaUrls?: string[];
+}
+
+export interface Thread {
+  id: string;
+  user_id?: string;
+  title: string;
+  author: string;
+  url: string;
+  tweets: Tweet[];
+  tags: string[];
+  createdAt: Date;
+  isFavorite: boolean;
+  isArchived: boolean;
+  isRead: boolean;
+  readProgress: number;
+}
+
+export type FilterType = 'all' | 'unread' | 'favorites' | 'archived' | 'series';
+export type SortType = 'date-desc' | 'date-asc' | 'author' | 'length';
+
+// Create the main threads store
+function createThreadsStore() {
+  const { subscribe, set, update } = writable<Thread[]>([]);
+
+  // Helper to sync state from Supabase
+  const fetchThreads = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        set([]);
+        return;
+    }
+
+    const { data, error } = await supabase
+      .from('threads')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching threads:', error);
+      return;
+    }
+
+    if (data) {
+      const formattedThreads: Thread[] = data.map((t: any) => ({
+        ...t,
+        createdAt: new Date(t.created_at),
+        // Map snake_case to camelCase for internal use
+        isFavorite: t.is_favorite,
+        isArchived: t.is_archived,
+        isRead: t.is_read,
+        readProgress: t.read_progress
+      }));
+      set(formattedThreads);
+    }
+  };
+
+  return {
+    subscribe,
+    init: async () => {
+      await fetchThreads();
+      
+      // Subscribe to realtime changes
+      supabase
+        .channel('public:threads')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'threads' }, () => {
+          fetchThreads();
+        })
+        .subscribe();
+    },
+    addThread: async (thread: Omit<Thread, 'id' | 'createdAt' | 'isFavorite' | 'isArchived' | 'isRead' | 'readProgress'>) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase.from('threads').insert({
+        user_id: user.id,
+        title: thread.title,
+        author: thread.author,
+        url: thread.url,
+        tweets: thread.tweets,
+        tags: thread.tags,
+        is_favorite: false,
+        is_archived: false,
+        is_read: false,
+        read_progress: 0
+      });
+
+      if (error) {
+        console.error('Error adding thread:', error);
+        throw error;
+      }
+      
+      // Explicitly fetch threads to ensure UI updates immediately
+      await fetchThreads();
+    },
+    updateThread: async (id: string, updates: Partial<Thread>) => {
+      // Map camelCase to snake_case for DB
+      const dbUpdates: any = {};
+      if (updates.isFavorite !== undefined) dbUpdates.is_favorite = updates.isFavorite;
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+      if (updates.isRead !== undefined) dbUpdates.is_read = updates.isRead;
+      if (updates.readProgress !== undefined) dbUpdates.read_progress = updates.readProgress;
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+
+      const { error } = await supabase
+        .from('threads')
+        .update(dbUpdates)
+        .eq('id', id);
+
+      if (error) console.error('Error updating thread:', error);
+    },
+    deleteThread: async (id: string) => {
+      const { error } = await supabase
+        .from('threads')
+        .delete()
+        .eq('id', id);
+
+
+      if (error) console.error('Error deleting thread:', error);
+      else await fetchThreads();
+    },
+    toggleFavorite: async (id: string) => {
+      let previousThreads: Thread[] = [];
+      update(currentThreads => {
+          previousThreads = currentThreads;
+          const thread = currentThreads.find(t => t.id === id);
+          if (thread) {
+             const newVal = !thread.isFavorite;
+             // Optimistic update
+             return currentThreads.map(t => t.id === id ? { ...t, isFavorite: newVal } : t);
+          }
+          return currentThreads;
+      });
+
+      // Perform DB update
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return; // Should handle auth error?
+
+      const { data, error } = await supabase
+        .from('threads')
+        .update({ is_favorite: !previousThreads.find(t => t.id === id)?.isFavorite }) // Toggle relative to what it was
+        // Wait, cleaner to just use the new value derived.
+        // But hard to get "newVal" here without recalculating.
+        // Let's rely on finding it again or just calculating based on previous.
+        // Actually, we can just get the found thread from previousThreads.
+        .eq('id', id)
+        .select();
+      
+      if (error) {
+          console.error('Failed to toggle favorite:', error);
+          // Revert
+          set(previousThreads);
+      }
+    },
+    toggleArchive: async (id: string) => {
+      let previousThreads: Thread[] = [];
+      update(currentThreads => {
+          previousThreads = currentThreads;
+          const thread = currentThreads.find(t => t.id === id);
+          if (thread) {
+             const newVal = !thread.isArchived;
+             return currentThreads.map(t => t.id === id ? { ...t, isArchived: newVal } : t);
+          }
+          return currentThreads;
+      });
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const thread = previousThreads.find(t => t.id === id);
+      if (!thread) return;
+
+      const { error } = await supabase
+        .from('threads')
+        .update({ is_archived: !thread.isArchived })
+        .eq('id', id);
+
+      if (error) {
+          console.error('Failed to toggle archive:', error);
+          set(previousThreads);
+      }
+    },
+    markAsRead: async (id: string) => {
+      update(threads => {
+          supabase.from('threads').update({ is_read: true, read_progress: 100 }).eq('id', id).then(console.error);
+          return threads.map(t => t.id === id ? { ...t, isRead: true, readProgress: 100 } : t);
+      });
+    },
+    updateProgress: async (id: string, progress: number) => {
+      update(threads => {
+          supabase.from('threads').update({ read_progress: progress }).eq('id', id).then(console.error);
+          return threads.map(t => t.id === id ? { ...t, readProgress: progress } : t);
+      });
+    }
+  };
+}
+
+export const threads = createThreadsStore();
+
+// Filter and sort stores
+export const currentFilter = writable<FilterType>('all');
+export const currentSort = writable<SortType>('date-desc');
+export const searchQuery = writable<string>('');
+export const selectedTag = writable<string | null>(null);
+
+// Derived store for filtered and sorted threads
+export const filteredThreads = derived(
+  [threads, currentFilter, currentSort, searchQuery, selectedTag],
+  ([$threads, $filter, $sort, $search, $tag]) => {
+    let filtered = [...$threads];
+
+    // Apply filter
+    switch ($filter) {
+      case 'unread':
+        filtered = filtered.filter(t => !t.isRead);
+        break;
+      case 'favorites':
+        filtered = filtered.filter(t => t.isFavorite);
+        break;
+      case 'archived':
+        filtered = filtered.filter(t => t.isArchived);
+        break;
+      case 'series':
+        return []; // Series are handled separately in UI
+
+    }
+
+    // Apply tag filter
+    if ($tag) {
+      filtered = filtered.filter(t => t.tags.includes($tag));
+    }
+
+    // Apply search
+    if ($search) {
+      const query = $search.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.title.toLowerCase().includes(query) ||
+        t.author.toLowerCase().includes(query) ||
+        t.tags.some(tag => tag.toLowerCase().includes(query)) ||
+        t.tweets.some(tweet => tweet.content.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply sort
+    switch ($sort) {
+      case 'date-desc':
+        filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        break;
+      case 'date-asc':
+        filtered.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        break;
+      case 'author':
+        filtered.sort((a, b) => a.author.localeCompare(b.author));
+        break;
+      case 'length':
+        filtered.sort((a, b) => b.tweets.length - a.tweets.length);
+        break;
+    }
+
+    return filtered;
+  }
+);
+
+// Derived store for all unique tags
+export const allTags = derived(threads, $threads => {
+  const tagSet = new Set<string>();
+  $threads.forEach(thread => {
+    thread.tags.forEach(tag => tagSet.add(tag));
+  });
+  return Array.from(tagSet).sort();
+});
+
+// Derived store for counts
+export const counts = derived(threads, $threads => ({
+  all: $threads.length,
+  unread: $threads.filter(t => !t.isRead).length,
+  favorites: $threads.filter(t => t.isFavorite).length,
+  archived: $threads.filter(t => t.isArchived).length
+}));

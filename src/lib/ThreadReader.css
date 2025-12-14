@@ -1,0 +1,554 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+.reader-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #0F172A;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #E2E8F0;
+  font-family: 'Inter', sans-serif;
+}
+
+.reader-header-minimal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    pointer-events: none; /* Let clicks pass through except buttons */
+}
+
+.reader-header-minimal button {
+    pointer-events: auto;
+}
+
+.btn-icon {
+    background: rgba(15, 23, 42, 0.5);
+    border: none;
+    color: #94A3B8;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
+}
+
+.btn-icon:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+.reader-actions {
+    display: flex;
+    gap: 0.5rem;
+    pointer-events: auto;
+}
+
+.btn-icon.danger:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.favorite-active {
+    color: #eab308;
+    fill: #eab308;
+}
+
+.archive-active {
+    color: #10b981;
+    fill: #10b981;
+}
+
+/* Layout */
+
+/* Layout */
+.book-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    max-width: 800px; /* Max book width */
+    width: 100%;
+    margin: 0 auto;
+    padding: 4rem 2rem;
+}
+
+.book-page {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Center content vertically */
+    padding: 0 1rem;
+}
+
+/* Cover Page Styles */
+.page-cover {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    gap: 3rem;
+    animation: fadeIn 0.8s ease-out;
+}
+
+.cover-image-container {
+    width: 100%;
+    max-width: 400px;
+    height: 300px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    margin-bottom: 2rem;
+}
+
+.cover-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cover-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.book-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #F8FAFC;
+    max-width: 90%;
+}
+
+.book-description {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.25rem;
+    line-height: 1.6;
+    color: #94A3B8;
+    max-width: 600px;
+    margin-top: 0.5rem;
+}
+
+.book-author {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #94A3B8;
+    font-size: 1.25rem;
+}
+
+.author-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.book-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.start-button {
+    pointer-events: auto;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem;
+    padding: 0.75rem 2rem;
+}
+
+/* Content Page Styles */
+.page-content {
+    position: relative;
+    font-size: 1.4rem; /* Larger comfortable reading size */
+    line-height: 1.8;
+    color: #E2E8F0;
+    margin: auto 0; /* Vertical centering fallback */
+    width: 100%;
+    max-width: 650px;
+    align-self: center;
+}
+
+.page-watermark {
+    position: absolute;
+    top: -4rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Playfair Display', serif;
+    font-size: 8rem;
+    color: rgba(255,255,255,0.03);
+    z-index: -1;
+    pointer-events: none;
+}
+
+.tweet-text {
+    white-space: pre-wrap;
+    margin-bottom: 2rem;
+    text-align: left; /* Or justify for true book feel? Left is usually better for web readability */
+    font-weight: 400;
+}
+
+.tweet-media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.book-image {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    max-height: 40vh; /* Don't take up too much vertical space */
+    object-fit: cover;
+    transition: transform 0.2s;
+}
+
+.book-image:hover {
+    transform: scale(1.02);
+}
+
+
+/* Controls Footer */
+.reader-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 1.5rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr minmax(auto, 400px) 1fr;
+    align-items: center;
+    gap: 2rem;
+    background: linear-gradient(to top, rgba(15,23,42,1), rgba(15,23,42,0));
+    z-index: 100;
+}
+
+.control-btn {
+    justify-self: start;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #94A3B8;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.control-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.control-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.control-btn:last-of-type {
+    justify-self: end;
+}
+
+.footer-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    justify-self: center;
+}
+
+.page-count {
+    font-size: 0.9rem;
+    color: #94A3B8;
+    font-family: 'Inter', sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #6366f1;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+@media (max-width: 768px) {
+    .book-title {
+        font-size: 2.2rem;
+    }
+    
+    .page-content {
+        font-size: 1.15rem;
+    }
+    
+    .reader-controls {
+        padding: 1rem;
+    }
+    
+    .book-image {
+        max-height: 30vh;
+    }
+}
+
+/* Image Zoom Styles */
+.image-wrapper {
+    cursor: zoom-in;
+    transition: transform 0.2s ease;
+}
+
+.image-wrapper:hover {
+    transform: scale(1.02);
+}
+
+.lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+
+.lightbox-content {
+    position: relative;
+    max-width: 95vw;
+    max-height: 95vh;
+}
+
+.lightbox-image {
+    max-width: 100%;
+    max-height: 95vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Link Styles */
+:global(.text-link) {
+    color: #60A5FA;
+    text-decoration: none;
+    border-bottom: 1px dotted rgba(96, 165, 250, 0.5);
+    transition: all 0.2s;
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+
+:global(.text-link:hover) {
+    color: #93C5FD;
+    border-bottom-style: solid;
+}
+
+.link-preview-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem; /* Added margin-top to separate from text */
+    margin-bottom: 2rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.link-preview-card:hover {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(96, 165, 250, 0.3);
+    transform: translateY(-2px);
+}
+
+.link-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(96, 165, 250, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #60A5FA;
+    flex-shrink: 0;
+}
+
+.link-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.link-domain {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #E2E8F0;
+    margin-bottom: 0.2rem;
+}
+
+.link-url {
+    font-size: 0.8rem;
+    color: #94A3B8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.link-arrow {
+    color: #475569;
+    transition: transform 0.2s;
+}
+
+.link-preview-card:hover .link-arrow {
+    color: #60A5FA;
+    transform: translateX(4px);
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+    z-index: 0;
+}
+
+.modal-content {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    z-index: 10;
+    cursor: default;
+}
+
+.delete-modal h3 {
+    margin-top: 0;
+    color: #f8fafc;
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.delete-modal p {
+    color: #94a3b8;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #cbd5e1;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+}
+
+.btn-danger {
+    background: #ef4444;
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
