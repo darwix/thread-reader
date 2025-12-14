@@ -38,6 +38,7 @@ jobs:
           BASE_PATH: '/${{ github.event.repository.name }}/'
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_AUTH_REDIRECT_URL: 'https://darwix.github.io/thread-reader/'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

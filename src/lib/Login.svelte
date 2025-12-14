@@ -23,7 +23,7 @@
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: window.location.origin
+          emailRedirectTo: import.meta.env.VITE_AUTH_REDIRECT_URL
         }
       });
       if (error) throw error;
