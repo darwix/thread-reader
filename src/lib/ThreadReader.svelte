@@ -41,6 +41,11 @@
              } else {
                 currentIndex = 0;
              }
+             
+             // Mark as read immediately on open
+             if (!found.isRead) {
+                 threads.markAsRead(found.id);
+             }
           }
           thread = found;
       }
@@ -74,9 +79,7 @@
     
     threads.updateProgress(thread.id, progress);
     
-    if (currentIndex === thread.tweets.length - 1 && !thread.isRead) {
-        threads.markAsRead(thread.id);
-    }
+
   }
 
   async function nextPage() {

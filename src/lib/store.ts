@@ -190,8 +190,8 @@ function createThreadsStore() {
     },
     markAsRead: async (id: string) => {
       update(threads => {
-          supabase.from('threads').update({ is_read: true, read_progress: 100 }).eq('id', id).then(console.error);
-          return threads.map(t => t.id === id ? { ...t, isRead: true, readProgress: 100 } : t);
+          supabase.from('threads').update({ is_read: true }).eq('id', id).then(console.error);
+          return threads.map(t => t.id === id ? { ...t, isRead: true } : t);
       });
     },
     updateProgress: async (id: string, progress: number) => {

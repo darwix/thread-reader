@@ -33,8 +33,7 @@
   let displayTitle = '';
   let displayDescription = '';
 
-  // Check for image in first tweet
-  $: firstImage = thread.tweets?.[0]?.mediaUrls?.[0];
+
 
   $: {
       // Use thread title if available, otherwise first tweet
@@ -51,22 +50,9 @@
 
 <a href="#/thread/{thread.id}" class="thread-card-link">
   <article class="thread-card" class:unread={!thread.isRead}>
-    <div class="card-image-wrapper">
-      {#if firstImage}
-        <img src={firstImage} alt="Thread cover" class="card-image" loading="lazy" />
-      {:else}
-        <div class="card-image-placeholder">
-           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" class="placeholder-icon">
-              <path d="M21 7V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V7C3 4 4.5 2 8 2H16C19.5 2 21 4 21 7Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M14.5 4.5V6.5C14.5 7.6 15.4 8.5 16.5 8.5H18.5" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-           </svg>
-        </div>
-      {/if}
-      <div class="cover-overlay"></div>
-      {#if !thread.isRead}
-          <div class="unread-indicator"></div>
-      {/if}
-    </div>
+    {#if !thread.isRead}
+        <div class="unread-indicator"></div>
+    {/if}
     <div class="card-content">
       <div class="card-header">
       <div class="author-info">
@@ -157,45 +143,7 @@
     padding: 0; /* Remove padding from main card, move to content */
   }
 
-  .card-image-wrapper {
-      width: 100%;
-      height: 140px; /* Match SeriesCard height */
-      position: relative;
-      overflow: hidden;
-      background: var(--color-bg-tertiary);
-  }
 
-  .card-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.3s ease;
-  }
-
-  .card-image-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-  }
-  
-  .placeholder-icon {
-      opacity: 0.3;
-      color: var(--color-primary);
-  }
-
-  .cover-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(15, 23, 42, 0.8), transparent);
-    pointer-events: none;
-  }
-
-  .thread-card:hover .card-image {
-      transform: scale(1.05);
-  }
 
   .unread-indicator {
       position: absolute;
