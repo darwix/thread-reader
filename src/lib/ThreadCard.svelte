@@ -33,6 +33,7 @@
   let displayTitle = '';
   let displayDescription = '';
 
+  // Check for image in first tweet
   $: firstImage = thread.tweets?.[0]?.mediaUrls?.[0];
 
   $: {

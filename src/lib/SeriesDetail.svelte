@@ -102,6 +102,8 @@
   {#if showDeleteModal}
     <div class="modal" role="dialog" aria-modal="true">
         <div class="modal-overlay" on:click={() => showDeleteModal = false} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && (showDeleteModal = false)} aria-label="Close modal"></div>
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
         <div class="modal-content delete-modal" on:click|stopPropagation role="document">
             <h3>Delete Series?</h3>
             <p>Are you sure you want to delete this series? The threads within it will NOT be deleted from your library.</p>

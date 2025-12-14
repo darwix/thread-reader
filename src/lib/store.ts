@@ -195,8 +195,9 @@ function createThreadsStore() {
       });
     },
     updateProgress: async (id: string, progress: number) => {
+      const roundedProgress = Math.round(progress);
       update(threads => {
-          supabase.from('threads').update({ read_progress: progress }).eq('id', id).then(console.error);
+          supabase.from('threads').update({ read_progress: roundedProgress }).eq('id', id).then(console.error);
           return threads.map(t => t.id === id ? { ...t, readProgress: progress } : t);
       });
     }
@@ -210,6 +211,19 @@ export const currentFilter = writable<FilterType>('all');
 export const currentSort = writable<SortType>('date-desc');
 export const searchQuery = writable<string>('');
 export const selectedTag = writable<string | null>(null);
+
+// Derived store for filtered and sorted threads
+// Helper function for search filtering
+function matchesSearch(thread: Thread, query: string): boolean {
+    const q = query.toLowerCase().trim();
+    if (!q) return true;
+    
+    return (
+        thread.title.toLowerCase().includes(q) ||
+        thread.author.toLowerCase().includes(q) ||
+        thread.tags.some(tag => tag.toLowerCase().includes(q))
+    );
+}
 
 // Derived store for filtered and sorted threads
 export const filteredThreads = derived(
@@ -239,14 +253,8 @@ export const filteredThreads = derived(
     }
 
     // Apply search
-    if ($search) {
-      const query = $search.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.title.toLowerCase().includes(query) ||
-        t.author.toLowerCase().includes(query) ||
-        t.tags.some(tag => tag.toLowerCase().includes(query)) ||
-        t.tweets.some(tweet => tweet.content.toLowerCase().includes(query))
-      );
+    if ($search && $search.trim()) {
+      filtered = filtered.filter(t => matchesSearch(t, $search));
     }
 
     // Apply sort
@@ -279,9 +287,18 @@ export const allTags = derived(threads, $threads => {
 });
 
 // Derived store for counts
-export const counts = derived(threads, $threads => ({
-  all: $threads.length,
-  unread: $threads.filter(t => !t.isRead).length,
-  favorites: $threads.filter(t => t.isFavorite).length,
-  archived: $threads.filter(t => t.isArchived).length
-}));
+export const counts = derived([threads, searchQuery], ([$threads, $search]) => {
+  let relevantThreads = $threads;
+  
+  // If there is a search filter, apply it to the counts too
+  if ($search) {
+      relevantThreads = $threads.filter(t => matchesSearch(t, $search));
+  }
+
+  return {
+      all: relevantThreads.length,
+      unread: relevantThreads.filter(t => !t.isRead).length,
+      favorites: relevantThreads.filter(t => t.isFavorite).length,
+      archived: relevantThreads.filter(t => t.isArchived).length
+  };
+});

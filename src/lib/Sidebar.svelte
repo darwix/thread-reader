@@ -2,10 +2,6 @@
   import { series } from './seriesStore';
   import { allTags, counts, currentFilter, searchQuery, selectedTag, type FilterType } from './store';
 
-  let searchValue = '';
-  
-  $: searchQuery.set(searchValue);
-
   function setFilter(filter: FilterType) {
     currentFilter.set(filter);
     selectedTag.set(null);
@@ -29,7 +25,7 @@
     </svg>
     <input 
       type="text" 
-      bind:value={searchValue}
+      bind:value={$searchQuery}
       placeholder="Search threads..."
       class="search-input"
     />

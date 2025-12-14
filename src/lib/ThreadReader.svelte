@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { fade, fly } from 'svelte/transition';
   import { router } from './router';
   import { threads, type Thread } from './store';
@@ -182,6 +182,76 @@
     }
   }
 
+  function jumpToPage(input: string | number | null) {
+      if (!thread || input === null) return;
+      
+      let page = typeof input === 'string' ? parseInt(input) : input;
+      
+      if (isNaN(page)) return;
+      
+      // Convert to 0-based index
+      page = page - 1;
+      
+      if (page >= 0 && page < thread.tweets.length) {
+          direction = page > currentIndex ? 1 : -1;
+          currentIndex = page;
+          updateProgress();
+      }
+      isEditingPage = false;
+  }
+
+  function calculatePageFromEvent(event: MouseEvent, element: HTMLElement): number {
+      const rect = element.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const width = rect.width;
+      const percentage = x / width;
+      let targetPage = Math.floor(percentage * thread!.tweets.length) + 1; // thread is checked before call
+      return Math.max(1, Math.min(thread!.tweets.length, targetPage));
+  }
+
+  function handleProgressBarClick(event: MouseEvent) {
+      if (!thread) return;
+      const targetPage = calculatePageFromEvent(event, event.currentTarget as HTMLElement);
+      jumpToPage(targetPage);
+  }
+
+  let hoverPage: number | null = null;
+  let hoverPosition = 0;
+
+  function handleProgressBarHover(event: MouseEvent) {
+      if (!thread) return;
+      const bar = event.currentTarget as HTMLElement;
+      hoverPage = calculatePageFromEvent(event, bar);
+      
+      const rect = bar.getBoundingClientRect();
+      hoverPosition = event.clientX - rect.left;
+  }
+
+  function handleProgressBarLeave() {
+      hoverPage = null;
+  }
+
+  let isEditingPage = false;
+  let pageInput: HTMLInputElement;
+
+  async function handlePageCountClick() {
+      isEditingPage = true;
+      await tick();
+      if (pageInput) {
+          pageInput.focus();
+          pageInput.select();
+      }
+  }
+
+  function handlePageInputKeydown(e: KeyboardEvent) {
+      if (e.key === 'Enter') {
+          jumpToPage((e.target as HTMLInputElement).value);
+      } else if (e.key === 'Escape') {
+          isEditingPage = false;
+      }
+      e.stopPropagation(); // Prevent main keydown handler
+  }
+
   onMount(() => {
     window.addEventListener('keydown', handleKeydown);
   });
@@ -235,12 +305,7 @@
           {#if currentIndex === 0}
              <!-- Cover Page (First Tweet) -->
              <div class="page-cover">
-                {#if thread.tweets[0].mediaUrls && thread.tweets[0].mediaUrls.length > 0}
-                    <!-- svelte-ignore a11y-click-events-have-key-events -->
-                    <div class="cover-image-container" on:click={() => thread?.tweets[0].mediaUrls && openImage(thread.tweets[0].mediaUrls[0])} role="button" tabindex="0" style="cursor: zoom-in;">
-                        <img src={thread.tweets[0].mediaUrls[0]} alt="Cover" class="cover-image" />
-                    </div>
-                {/if}
+
                 <div class="cover-content">
                     <h1 class="book-title">{displayTitle || 'Untitled Thread'}</h1>
                     
@@ -294,8 +359,7 @@
                  {#if thread?.tweets[currentIndex]?.mediaUrls?.length}
                     <div class="tweet-media-grid">
                         {#each thread.tweets[currentIndex].mediaUrls as url}
-                            <!-- svelte-ignore a11y-click-events-have-key-events -->
-                            <div class="image-wrapper" on:click={() => openImage(url)} role="button" tabindex="0">
+                            <div class="image-wrapper" on:click={() => openImage(url)} on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && openImage(url)} role="button" tabindex="0">
                                 <img src={url} alt="Tweet media" class="book-image" loading="lazy" />
                             </div>
                         {/each}
@@ -316,9 +380,41 @@
         </button>
 
         <div class="footer-center">
-            <span class="page-count">{currentIndex + 1} / {thread.tweets.length}</span>
-            <div class="progress-bar-container">
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            {#if isEditingPage}
+                <div class="page-input-wrapper">
+                    <input 
+                        type="number" 
+                        class="page-jump-input"
+                        value={currentIndex + 1}
+                        bind:this={pageInput}
+                        on:keydown={handlePageInputKeydown}
+                        on:blur={() => isEditingPage = false}
+                        min="1"
+                        max={thread.tweets.length}
+                    />
+                    <span class="page-total">/ {thread.tweets.length}</span>
+                </div>
+            {:else}
+                <span class="page-count" on:click={handlePageCountClick} role="button" tabindex="0" title="Jump to Page">{currentIndex + 1} / {thread.tweets.length}</span>
+            {/if}
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <div 
+                class="progress-bar-container" 
+                on:click={handleProgressBarClick} 
+                on:mousemove={handleProgressBarHover}
+                on:mouseleave={handleProgressBarLeave}
+                role="button" 
+                tabindex="0" 
+                title="Click to jump"
+            >
                 <div class="progress-fill" style="width: {((currentIndex + 1) / thread.tweets.length) * 100}%"></div>
+                {#if hoverPage !== null}
+                    <div class="progress-tooltip" style="left: {hoverPosition}px">
+                        {hoverPage}
+                    </div>
+                {/if}
             </div>
         </div>
 
