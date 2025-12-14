@@ -1,10 +1,21 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
+  import { router } from './router';
   import { series } from './seriesStore';
   import { threads } from './store';
   import ThreadCard from './ThreadCard.svelte';
   
   export let id: string;
+  
+  let showDeleteModal = false;
+
+  async function handleDelete() {
+      if (currentSeries) {
+          await series.deleteSeries(id);
+          showDeleteModal = false;
+          router.navigate('/');
+      }
+  }
 
   // Reactive derived values
   $: currentSeries = $series.find(s => s.id === id);
@@ -49,7 +60,14 @@
         {/if}
         
         <div class="info-content">
-            <span class="badge">Series</span>
+            <div class="info-header">
+                <span class="badge">Series</span>
+                <button class="delete-btn" on:click={() => showDeleteModal = true} title="Delete Series">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                    </svg>
+                </button>
+            </div>
             <h1>{currentSeries.title}</h1>
             <p class="meta">Created on {formattedDate(currentSeries.createdAt)} • {seriesThreads.length} Threads</p>
             {#if currentSeries.description}
@@ -79,6 +97,21 @@
       <a href="#/" class="btn btn-primary">Go Home</a>
     </div>
   {/if}
+
+  <!-- Delete Confirmation Modal -->
+  {#if showDeleteModal}
+    <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-overlay" on:click={() => showDeleteModal = false} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && (showDeleteModal = false)} aria-label="Close modal"></div>
+        <div class="modal-content delete-modal" on:click|stopPropagation role="document">
+            <h3>Delete Series?</h3>
+            <p>Are you sure you want to delete this series? The threads within it will NOT be deleted from your library.</p>
+            <div class="modal-actions">
+                <button class="btn-secondary" on:click={() => showDeleteModal = false}>Cancel</button>
+                <button class="btn-danger" on:click={handleDelete}>Delete Series</button>
+            </div>
+        </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -87,6 +120,113 @@
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+  }
+
+  /* Modal Styles */
+  .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+  }
+
+  .modal-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+      z-index: 0;
+  }
+
+  .modal-content {
+      position: relative;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+  }
+
+  .delete-modal h3 {
+      margin-top: 0;
+      color: #f8fafc;
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+  }
+
+  .delete-modal p {
+      color: #94a3b8;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+  }
+
+  .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+  }
+
+  .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #cbd5e1;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+  }
+
+  .btn-secondary:hover {
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+  }
+
+  .btn-danger {
+      background: #ef4444;
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+  }
+
+  .btn-danger:hover {
+      background: #dc2626;
+  }
+
+  .info-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 100%;
+  }
+
+  .delete-btn {
+      color: #94a3b8;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 8px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+  }
+
+  .delete-btn:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.2);
   }
 
   .back-link {
@@ -125,6 +265,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
   }
 
   .overlay {

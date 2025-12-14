@@ -347,11 +347,12 @@
         </div>
     {/if}
 
+
     <!-- Delete Confirmation Modal -->
     {#if showDeleteModal}
         <div class="modal" role="dialog" aria-modal="true">
             <div class="modal-overlay" on:click={() => showDeleteModal = false} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && (showDeleteModal = false)} aria-label="Close modal"></div>
-            <div class="modal-content delete-modal" on:click|stopPropagation role="document">
+            <div class="modal-content delete-modal" role="document">
                 <h3>Delete Thread?</h3>
                 <p>Are you sure you want to delete this thread? This action cannot be undone.</p>
                 <div class="modal-actions">
