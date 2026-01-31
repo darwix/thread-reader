@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Thread Reader</title>
+  <style>
+    body {
+      width: 300px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0F172A;
+      color: white;
+    }
+    h2 { margin-top: 0; font-size: 1.2rem; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 4px; font-size: 0.85rem; color: #94A3B8; }
+    input {
+      width: 100%;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+      background: #1E293B;
+      color: white;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      border-radius: 4px;
+      border: none;
+      background: #6366F1;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; }
+    .error { color: #EF4444; font-size: 0.8rem; margin-top: 8px; }
+    .success { color: #10B981; font-size: 0.8rem; margin-top: 8px; }
+    .hidden { display: none; }
+    .user-info { font-size: 0.9rem; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div id="login-view">
+    <h2>Login</h2>
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" placeholder="email@example.com">
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="••••••••">
+    </div>
+    <button id="login-btn">Login</button>
+    <div id="error-msg" class="error hidden"></div>
+  </div>
+
+  <div id="logged-in-view" class="hidden">
+    <h2>Thread Reader</h2>
+    <div class="user-info">Logged in as: <span id="user-email"></span></div>
+    <button id="logout-btn" style="background: #334155;">Logout</button>
+    <div id="status-msg" class="success hidden"></div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -20,11 +20,44 @@ export interface Thread {
   isFavorite: boolean;
   isArchived: boolean;
   isRead: boolean;
+  isPublic: boolean;
   readProgress: number;
 }
 
 export type FilterType = 'all' | 'unread' | 'favorites' | 'archived' | 'series';
 export type SortType = 'date-desc' | 'date-asc' | 'author' | 'length';
+
+async function archiveMedia(url: string, userId: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch media: ${response.statusText}`);
+    const blob = await response.blob();
+
+    // Extract extension or default to jpg
+    const urlWithoutQuery = url.split('?')[0];
+    const fileExt = urlWithoutQuery.split('.').pop() || 'jpg';
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const path = `${userId}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('thread-media')
+      .upload(path, blob, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('thread-media')
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  } catch (e) {
+    console.error('Media archiving failed for:', url, e);
+    return url; // Fallback to original URL
+  }
+}
 
 // Create the main threads store
 function createThreadsStore() {
@@ -56,6 +89,7 @@ function createThreadsStore() {
         isFavorite: t.is_favorite,
         isArchived: t.is_archived,
         isRead: t.is_read,
+        isPublic: t.is_public,
         readProgress: t.read_progress
       }));
       set(formattedThreads);
@@ -75,20 +109,32 @@ function createThreadsStore() {
         })
         .subscribe();
     },
-    addThread: async (thread: Omit<Thread, 'id' | 'createdAt' | 'isFavorite' | 'isArchived' | 'isRead' | 'readProgress'>) => {
+    addThread: async (thread: Omit<Thread, 'id' | 'createdAt' | 'isFavorite' | 'isArchived' | 'isRead' | 'readProgress' | 'isPublic'>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
+
+      // Archive media to Supabase Storage
+      const archivedTweets = await Promise.all(thread.tweets.map(async (tweet) => {
+        if (tweet.mediaUrls && tweet.mediaUrls.length > 0) {
+          const newMediaUrls = await Promise.all(
+            tweet.mediaUrls.map(url => archiveMedia(url, user.id))
+          );
+          return { ...tweet, mediaUrls: newMediaUrls };
+        }
+        return tweet;
+      }));
 
       const { error } = await supabase.from('threads').insert({
         user_id: user.id,
         title: thread.title,
         author: thread.author,
         url: thread.url,
-        tweets: thread.tweets,
+        tweets: archivedTweets,
         tags: thread.tags,
         is_favorite: false,
         is_archived: false,
         is_read: false,
+        is_public: false,
         read_progress: 0
       });
 
@@ -106,6 +152,7 @@ function createThreadsStore() {
       if (updates.isFavorite !== undefined) dbUpdates.is_favorite = updates.isFavorite;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
       if (updates.isRead !== undefined) dbUpdates.is_read = updates.isRead;
+      if (updates.isPublic !== undefined) dbUpdates.is_public = updates.isPublic;
       if (updates.readProgress !== undefined) dbUpdates.read_progress = updates.readProgress;
       if (updates.title !== undefined) dbUpdates.title = updates.title;
       if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
@@ -200,6 +247,25 @@ function createThreadsStore() {
           supabase.from('threads').update({ read_progress: roundedProgress }).eq('id', id).then(console.error);
           return threads.map(t => t.id === id ? { ...t, readProgress: progress } : t);
       });
+    },
+    fetchPublicThread: async (id: string): Promise<Thread | null> => {
+      const { data, error } = await supabase
+        .from('threads')
+        .select('*')
+        .eq('id', id)
+        .eq('is_public', true)
+        .single();
+
+      if (error || !data) return null;
+      return {
+        ...data,
+        createdAt: new Date(data.created_at),
+        isFavorite: data.is_favorite,
+        isArchived: data.is_archived,
+        isRead: data.is_read,
+        isPublic: data.is_public,
+        readProgress: data.read_progress
+      };
     }
   };
 }

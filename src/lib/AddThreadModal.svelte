@@ -63,39 +63,69 @@
         const MAX_TWEETS = import.meta.env.VITE_MAX_TWEETS ? parseInt(import.meta.env.VITE_MAX_TWEETS) : 400;
         let hasParent = true;
   
-        while (hasParent && iterations < MAX_TWEETS) {
-            const res = await fetch(`https://api.fxtwitter.com/status/${currentId}`);
+        // 1. Initial fetch to see what we have
+        const initialRes = await fetch(`https://api.fxtwitter.com/status/${currentId}`);
+        const initialData = await initialRes.json();
+
+        if (!initialRes.ok || initialData.code === 401 || initialData.message === 'PRIVATE_TWEET') {
+             if (initialData.message === 'PRIVATE_TWEET' || initialData.code === 401) {
+                 saveError = "This tweet is from a private account. Please enter details manually.";
+                 showManualInput = true;
+                 throw new Error('Private tweet');
+             }
+             throw new Error(initialData.message || 'Failed to fetch tweet data');
+        }
+
+        const mainTweetData = initialData.tweet;
+        if (!mainTweetData) throw new Error('No tweet found');
+
+        // 2. Determine strategy (Backward from last or Forward from first)
+        if (mainTweetData.thread && mainTweetData.thread.length > 1) {
+            // FixTweet already has the full thread
+            threadTweets = mainTweetData.thread;
+        } else if (mainTweetData.replying_to_status) {
+            // It's a reply, crawl backwards as before
+            threadTweets.unshift(mainTweetData);
+            currentId = mainTweetData.replying_to_status;
             
-            // FXTwitter returns 401/404 with JSON often
-            const data = await res.json();
-  
-            if (!res.ok || data.code === 401 || data.message === 'PRIVATE_TWEET') {
-                 if (data.message === 'PRIVATE_TWEET' || data.code === 401) {
-                     saveError = "This tweet is from a private account. Please enter details manually.";
-                     showManualInput = true;
-                     throw new Error('Private tweet');
-                 }
-                 throw new Error(data.message || 'Failed to fetch tweet data');
+            let hasParent = true;
+            while (hasParent && iterations < MAX_TWEETS) {
+                const res = await fetch(`https://api.fxtwitter.com/status/${currentId}`);
+                const data = await res.json();
+                if (!res.ok || !data.tweet) break;
+
+                threadTweets.unshift(data.tweet);
+                fetchedCount = threadTweets.length;
+
+                if (data.tweet.replying_to_status) {
+                    currentId = data.tweet.replying_to_status;
+                    iterations++;
+                    await new Promise(r => setTimeout(r, 200));
+                } else {
+                    hasParent = false;
+                }
+            }
+        } else {
+            // It's the first tweet, try to get the thread via unroll proxy (vxtwitter)
+            threadTweets = [mainTweetData];
+            try {
+                // vxtwitter often has better thread unrolling for first tweets
+                const vxRes = await fetch(`https://api.vxtwitter.com/status/${mainTweetData.id_str || currentId}`);
+                if (vxRes.ok) {
+                    const vxData = await vxRes.json();
+                    if (vxData.thread && Array.isArray(vxData.thread)) {
+                        threadTweets = vxData.thread;
+                    }
+                }
+            } catch (err) {
+                console.warn('vxTwitter unroll failed');
             }
             
-            const tweet = data.tweet;
-  
-            if (!tweet) break;
-  
-            // Add to beginning of array since we are going backwards
-            threadTweets.unshift(tweet);
-            fetchedCount = threadTweets.length;
-  
-            // Check for parent
-            if (tweet.replying_to_status) {
-                currentId = tweet.replying_to_status;
-                iterations++;
-                // Small delay to be nice to the API
-                await new Promise(r => setTimeout(r, 200));
-            } else {
-                hasParent = false;
+            if (threadTweets.length === 1 && mainTweetData.replies > 0) {
+                saveError = "First tweet found, but couldn't fetch replies automatically. For full threads, try pasting the LAST tweet URL.";
             }
         }
+        fetchedCount = threadTweets.length;
         
         if (threadTweets.length === 0) throw new Error('No tweets found');
   
@@ -285,7 +315,7 @@
             </button>
           </div>
           <small class="helper-text">
-            For full threads, paste the URL of the <strong>last tweet</strong> in the thread. We'll fetch the rest automatically.
+            For full threads, paste the URL of the <strong>first tweet</strong> in the thread. We'll fetch the rest automatically.
           </small>
         </div>
 

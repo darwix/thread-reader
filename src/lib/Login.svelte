@@ -1,36 +1,24 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { supabase } from './supabase';
 
   let loading = false;
   let email = '';
-  let sent = false;
+  let password = '';
   let errorMessage = '';
 
-  onMount(() => {
-    // Check for errors in URL (e.g. from magic link redirect failure)
-    const params = new URLSearchParams(window.location.hash.substring(1)); // Supabase uses hash for implicit
-    const errorDesc = params.get('error_description');
-    if (errorDesc) {
-      errorMessage = decodeURIComponent(errorDesc).replace(/\+/g, ' ');
-    }
-  });
-
   async function handleLogin() {
-    if (!email) return;
+    if (!email || !password) return;
     try {
       loading = true;
-      const { error } = await supabase.auth.signInWithOtp({
+      errorMessage = '';
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        options: {
-          emailRedirectTo: import.meta.env.VITE_AUTH_REDIRECT_URL
-        }
+        password
       });
       if (error) throw error;
-      sent = true;
     } catch (error) {
       if (error instanceof Error) {
-        alert(error.message);
+        errorMessage = error.message;
       }
     } finally {
       loading = false;
@@ -56,35 +44,33 @@
       </div>
     {/if}
 
-    {#if sent}
-      <div class="sent-message">
-        <div class="icon-circle">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 8L10.89 13.26C11.2187 13.4791 11.6094 13.5966 12.0039 13.5966C12.3984 13.5966 12.7891 13.4791 13.1179 13.26L21 8M5 19H19C19.5304 19 20.0391 18.7893 20.4142 18.4142C20.7893 18.0391 21 17.5304 21 17V7C21 6.46957 20.7893 5.96086 20.4142 5.58579C20.0391 5.21071 19.5304 5 19 5H5C4.46957 5 3.96086 5.21071 3.58579 5.58579C3.21071 5.96086 3 6.46957 3 7V17C3 17.5304 3.21071 18.0391 3.58579 18.4142C3.96086 18.7893 4.46957 19 5 19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <h3>Check your email</h3>
-        <p>We sent a login link to <strong>{email}</strong></p>
-        <button class="btn-link" on:click={() => sent = false}>Try different email</button>
+    <form class="login-form" on:submit|preventDefault={handleLogin}>
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="you@example.com"
+          bind:value={email}
+          required
+          class="email-input"
+        />
       </div>
-    {:else}
-      <form class="login-form" on:submit|preventDefault={handleLogin}>
-        <div class="form-group">
-          <label for="email">Email address</label>
-          <input 
-            id="email"
-            type="email" 
-            placeholder="you@example.com" 
-            bind:value={email} 
-            required 
-            class="email-input"
-          />
-        </div>
-        <button type="submit" class="btn btn-primary full-width" disabled={loading}>
-          {loading ? 'Sending Magic Link...' : 'Sign In with Email'}
-        </button>
-      </form>
-    {/if}
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="••••••••"
+          bind:value={password}
+          required
+          class="email-input"
+        />
+      </div>
+      <button type="submit" class="btn btn-primary full-width" disabled={loading}>
+        {loading ? 'Signing in...' : 'Sign In'}
+      </button>
+    </form>
   </div>
 </div>
 
@@ -173,35 +159,5 @@
   .full-width {
     width: 100%;
     justify-content: center;
-  }
-
-  .sent-message {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-sm);
-  }
-
-  .icon-circle {
-    width: 48px;
-    height: 48px;
-    background: rgba(99, 102, 241, 0.1);
-    color: var(--color-primary);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: var(--space-sm);
-  }
-
-  .btn-link {
-    background: none;
-    border: none;
-    color: var(--color-primary);
-    text-decoration: underline;
-    cursor: pointer;
-    font-size: 0.9rem;
-    padding: 0;
-    margin-top: var(--space-sm);
   }
 </style>

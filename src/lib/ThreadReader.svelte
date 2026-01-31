@@ -3,12 +3,14 @@
   import { fade, fly } from 'svelte/transition';
   import { router } from './router';
   import { threads, type Thread } from './store';
+  import { supabase } from './supabase';
   import './ThreadReader.css';
 
   export let id: string | undefined = undefined; 
   export let thread: Thread | null = null; 
 
   let loadingPage = false; 
+  let userId: string | null = null;
 
   async function preloadImages(urls: string[]) {
     const promises = urls.map(url => {
@@ -29,25 +31,33 @@
   
   // If id is provided but thread isn't, find it
   // Reactive update of thread from store when id changes or store updates
-  $: if (id && $threads.length > 0) {
+  $: isOwner = userId && thread && thread.user_id === userId;
+
+  $: if (id && (!thread || thread.id !== id)) {
       const found = $threads.find(t => t.id === id);
       if (found) {
           // If we are loading this thread for the first time (or switching threads), init progress
-          if (!thread || thread.id !== id) {
-             if (found.readProgress > 0) {
-                const totalPages = found.tweets.length; 
-                const targetPage = Math.floor((found.readProgress / 100) * totalPages);
-                currentIndex = Math.max(0, Math.min(targetPage, found.tweets.length - 1));
-             } else {
-                currentIndex = 0;
-             }
-             
-             // Mark as read immediately on open
-             if (!found.isRead) {
-                 threads.markAsRead(found.id);
-             }
+          if (found.readProgress > 0) {
+             const totalPages = found.tweets.length;
+             const targetPage = Math.floor((found.readProgress / 100) * totalPages);
+             currentIndex = Math.max(0, Math.min(targetPage, found.tweets.length - 1));
+          } else {
+             currentIndex = 0;
+          }
+
+          // Mark as read immediately on open
+          if (!found.isRead) {
+              threads.markAsRead(found.id);
           }
           thread = found;
+      } else {
+          // Try fetching as public thread if not in local store
+          threads.fetchPublicThread(id).then(publicThread => {
+              if (publicThread) {
+                  thread = publicThread;
+                  currentIndex = 0;
+              }
+          });
       }
   }
 
@@ -124,6 +134,27 @@
           threads.deleteThread(thread.id);
           showDeleteModal = false;
           handleClose();
+      }
+  }
+
+  async function togglePublic() {
+      if (thread) {
+          const newVal = !thread.isPublic;
+          await threads.updateThread(thread.id, { isPublic: newVal });
+      }
+  }
+
+  function copyPublicLink() {
+      if (thread) {
+          const url = `${window.location.origin}/#/thread/${thread.id}`;
+          navigator.clipboard.writeText(url);
+          // Simple feedback
+          const btn = document.getElementById('copy-link-btn');
+          if (btn) {
+              const original = btn.innerHTML;
+              btn.innerHTML = 'Copied!';
+              setTimeout(() => btn.innerHTML = original, 2000);
+          }
       }
   }
 
@@ -255,7 +286,9 @@
       e.stopPropagation(); // Prevent main keydown handler
   }
 
-  onMount(() => {
+  onMount(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    userId = session?.user?.id || null;
     window.addEventListener('keydown', handleKeydown);
   });
 
@@ -272,25 +305,43 @@
           <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
-      <div class="reader-actions">
-          <button class="btn-icon" on:click={() => thread && threads.toggleFavorite(thread.id)} title={thread.isFavorite ? "Unfavorite" : "Favorite"}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={thread.isFavorite ? "currentColor" : "none"} stroke="currentColor" class="icon {thread.isFavorite ? 'favorite-active' : ''}">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          
-          <button class="btn-icon" on:click={() => thread && threads.toggleArchive(thread.id)} title={thread.isArchived ? "Unarchive" : "Archive"}>
-             <svg width="20" height="20" viewBox="0 0 24 24" fill={thread.isArchived ? "currentColor" : "none"} stroke="currentColor" class="icon {thread.isArchived ? 'archive-active' : ''}">
-                <path d="M21 8v13H3V8M1 3h22v5H1V3zM10 12h4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-             </svg>
-          </button>
-          
-          <button class="btn-icon danger" on:click={() => showDeleteModal = true} title="Delete Thread">
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon">
-                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-             </svg>
-          </button>
-      </div>
+      {#if isOwner}
+        <div class="reader-actions">
+            <button class="btn-icon" on:click={() => thread && threads.toggleFavorite(thread.id)} title={thread.isFavorite ? "Unfavorite" : "Favorite"}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={thread.isFavorite ? "currentColor" : "none"} stroke="currentColor" class="icon {thread.isFavorite ? 'favorite-active' : ''}">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+
+            <button class="btn-icon" on:click={() => thread && threads.toggleArchive(thread.id)} title={thread.isArchived ? "Unarchive" : "Archive"}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={thread.isArchived ? "currentColor" : "none"} stroke="currentColor" class="icon {thread.isArchived ? 'archive-active' : ''}">
+                    <path d="M21 8v13H3V8M1 3h22v5H1V3zM10 12h4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+
+            <button class="btn-icon" on:click={togglePublic} title={thread.isPublic ? "Make Private" : "Make Public"}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={thread.isPublic ? "currentColor" : "none"} stroke="currentColor" class="icon {thread.isPublic ? 'public-active' : ''}">
+                    <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                    <path d="M12 2a10 10 0 0 1 0 20M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20" stroke-width="2"/>
+                </svg>
+            </button>
+
+            {#if thread.isPublic}
+                <button id="copy-link-btn" class="btn-icon" on:click={copyPublicLink} title="Copy Public Link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                </button>
+            {/if}
+
+            <button class="btn-icon danger" on:click={() => showDeleteModal = true} title="Delete Thread">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+      {/if}
     </header>
 
     <main class="book-container">
@@ -464,7 +515,7 @@
   </div>
 {/if}
 
-<script context="module">
+<script context="module" lang="ts">
   function formatContent(text: string): string {
     // Basic URL regex
     const urlRegex = /(https?:\/\/[^\s]+)/g;

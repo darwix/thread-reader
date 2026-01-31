@@ -1,0 +1,49 @@
+.thread-reader-save-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-radius: 999px;
+    margin-left: 4px;
+}
+
+.thread-reader-save-btn:hover {
+    background-color: rgba(29, 155, 240, 0.1);
+}
+
+.thread-reader-save-btn .icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thread-reader-save-btn svg {
+    width: 18.75px;
+    height: 18.75px;
+    fill: rgb(113, 118, 123);
+}
+
+.thread-reader-save-btn:hover svg {
+    fill: rgb(29, 155, 240);
+}
+
+.thread-reader-save-btn.loading svg {
+    animation: pulse 1s infinite;
+    fill: rgb(255, 173, 31);
+}
+
+.thread-reader-save-btn.success svg {
+    fill: rgb(0, 186, 124);
+}
+
+.thread-reader-save-btn.error svg {
+    fill: rgb(244, 33, 46);
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}

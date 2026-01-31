@@ -110,7 +110,7 @@
   <div class="loading-screen">
     <div class="spinner"></div>
   </div>
-{:else if !session}
+{:else if !session && !$router.path.startsWith('/thread') && !$router.path.startsWith('/series')}
   <Login />
 {:else}
   <div class="app">

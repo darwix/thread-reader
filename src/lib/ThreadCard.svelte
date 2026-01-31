@@ -71,6 +71,9 @@
         {#if thread.isArchived}
           <span class="badge archived" title="Archived">📦</span>
         {/if}
+        {#if thread.isPublic}
+          <span class="badge public" title="Publicly Shared">🌐</span>
+        {/if}
         {#if !thread.isRead}
           <span class="badge unread-badge">New</span>
         {/if}
