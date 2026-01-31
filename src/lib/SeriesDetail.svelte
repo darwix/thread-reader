@@ -1,13 +1,34 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { router } from './router';
-  import { series } from './seriesStore';
-  import { threads } from './store';
+  import { series, type Series } from './seriesStore';
+  import { threads, type Thread } from './store';
+  import { supabase } from './supabase';
   import ThreadCard from './ThreadCard.svelte';
   
   export let id: string;
   
   let showDeleteModal = false;
+  let userId: string | null = null;
+  let publicSeries: Series | null = null;
+  let publicThreads: Thread[] = [];
+
+  onMount(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      userId = session?.user?.id || null;
+
+      if (!$series.find(s => s.id === id)) {
+          const s = await series.fetchPublicSeries(id);
+          if (s) {
+              publicSeries = s;
+              // Fetch threads for this public series
+              const threadPromises = s.threadIds.map(tid => threads.fetchPublicThread(tid));
+              const results = await Promise.all(threadPromises);
+              publicThreads = results.filter((t): t is Thread => t !== null);
+          }
+      }
+  });
 
   async function handleDelete() {
       if (currentSeries) {
@@ -17,18 +38,40 @@
       }
   }
 
+  async function togglePublic() {
+      if (currentSeries && isOwner) {
+          const newVal = !currentSeries.isPublic;
+          await series.updateSeries(currentSeries.id, { isPublic: newVal });
+      }
+  }
+
+  function copyPublicLink() {
+      if (currentSeries) {
+          const url = `${window.location.origin}/#/series/${currentSeries.id}`;
+          navigator.clipboard.writeText(url);
+          const btn = document.getElementById('copy-series-link');
+          if (btn) {
+              const original = btn.innerHTML;
+              btn.innerHTML = 'Copied!';
+              setTimeout(() => btn.innerHTML = original, 2000);
+          }
+      }
+  }
+
   // Reactive derived values
-  $: currentSeries = $series.find(s => s.id === id);
+  $: currentSeries = $series.find(s => s.id === id) || publicSeries;
+  $: isOwner = userId && currentSeries && currentSeries.user_id === userId;
   
   $: seriesThreads = currentSeries 
-    ? $threads.filter(t => currentSeries.threadIds.includes(t.id))
-      // Maintain order if possible, or just filter. 
-      // Ideally we sort by the order in threadIds, but that might need more logic
+    ? (isOwner ? $threads : [...$threads, ...publicThreads])
+      .filter(t => currentSeries!.threadIds.includes(t.id))
       .sort((a, b) => {
-         const indexA = currentSeries.threadIds.indexOf(a.id);
-         const indexB = currentSeries.threadIds.indexOf(b.id);
+         const indexA = currentSeries!.threadIds.indexOf(a.id);
+         const indexB = currentSeries!.threadIds.indexOf(b.id);
          return indexA - indexB;
       })
+      // Unique threads only
+      .filter((t, i, arr) => arr.findIndex(tt => tt.id === t.id) === i)
     : [];
 
   const formattedDate = (dateString: string | Date | undefined) => {
@@ -62,11 +105,31 @@
         <div class="info-content">
             <div class="info-header">
                 <span class="badge">Series</span>
-                <button class="delete-btn" on:click={() => showDeleteModal = true} title="Delete Series">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-                    </svg>
-                </button>
+                {#if isOwner}
+                    <div class="header-actions">
+                        <button class="action-btn" on:click={togglePublic} title={currentSeries.isPublic ? "Make Private" : "Make Public"}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill={currentSeries.isPublic ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" class={currentSeries.isPublic ? 'active' : ''}>
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 2a10 10 0 0 1 0 20M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20"/>
+                            </svg>
+                        </button>
+
+                        {#if currentSeries.isPublic}
+                            <button id="copy-series-link" class="action-btn" on:click={copyPublicLink} title="Copy Public Link">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                                </svg>
+                            </button>
+                        {/if}
+
+                        <button class="delete-btn" on:click={() => showDeleteModal = true} title="Delete Series">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                {/if}
             </div>
             <h1>{currentSeries.title}</h1>
             <p class="meta">Created on {formattedDate(currentSeries.createdAt)} • {seriesThreads.length} Threads</p>
@@ -229,6 +292,34 @@
       color: #ef4444;
       background: rgba(239, 68, 68, 0.1);
       border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .header-actions {
+      display: flex;
+      gap: 0.5rem;
+  }
+
+  .action-btn {
+      color: #94a3b8;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 8px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+  }
+
+  .action-btn:hover {
+      color: var(--color-primary);
+      background: rgba(99, 102, 241, 0.1);
+      border-color: rgba(99, 102, 241, 0.2);
+  }
+
+  .action-btn svg.active {
+      color: var(--color-primary);
   }
 
   .back-link {

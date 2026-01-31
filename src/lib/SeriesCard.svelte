@@ -31,7 +31,12 @@
 
     <div class="card-content">
       <div class="card-header">
-        <div class="series-badge">Series</div>
+        <div class="header-left">
+          <div class="series-badge">Series</div>
+          {#if series.isPublic}
+            <span class="public-badge" title="Publicly Shared">🌐</span>
+          {/if}
+        </div>
         <span class="date">{formattedDate}</span>
       </div>
 
@@ -115,6 +120,12 @@
     margin-bottom: var(--space-sm);
   }
 
+  .header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+  }
+
   .series-badge {
       background: var(--color-primary);
       color: white;
@@ -123,6 +134,10 @@
       border-radius: 999px;
       font-weight: 600;
       text-transform: uppercase;
+  }
+
+  .public-badge {
+      font-size: 0.9rem;
   }
 
   .date {
