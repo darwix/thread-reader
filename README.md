@@ -56,6 +56,14 @@ The project includes a Chrome Extension that allows you to save threads directly
 - You will see a new "Save to Reader" icon (circle with a checkmark) in the tweet's action bar.
 - Click it to automatically scrape and save the thread to your Reader app.
 
+### Packaging for Distribution
+If you want to share the extension without sharing the source code:
+1.  Go to `chrome://extensions/`.
+2.  Click the **Pack extension** button.
+3.  Select the `extension` folder as the "Extension root directory".
+4.  Chrome will generate a `.crx` file and a `.pem` private key.
+5.  **Note:** To publish to the Chrome Web Store, you must create a ZIP file of the `extension` folder (excluding the `.pem` file) and upload it to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
+
 ## Setup & Deployment
 
 1.  **Supabase Setup:**
