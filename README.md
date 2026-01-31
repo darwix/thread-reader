@@ -39,6 +39,23 @@ A modern, distraction-free reader for Twitter (X) threads. Save, organize, and s
 7.  **Dynamic Previews:** Generate Open Graph (OG) images for public links to improve social media appearance.
 8.  **Video Support:** Expand the scraper to support video extraction where possible.
 
+## Browser Extension
+
+The project includes a Chrome Extension that allows you to save threads directly from the Twitter/X interface.
+
+### Installation
+1.  Open Chrome and navigate to `chrome://extensions/`.
+2.  Enable **Developer mode** (toggle in the top right).
+3.  Click **Load unpacked** and select the `extension` folder from this repository.
+4.  Configure the extension:
+    - Open `extension/config.js` and fill in your `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+5.  Click the extension icon in your browser and log in with your email and password.
+
+### Usage
+- Navigate to any tweet on Twitter/X.
+- You will see a new "Save to Reader" icon (circle with a checkmark) in the tweet's action bar.
+- Click it to automatically scrape and save the thread to your Reader app.
+
 ## Setup & Deployment
 
 1.  **Supabase Setup:**
