@@ -26,6 +26,38 @@ export interface Thread {
 export type FilterType = 'all' | 'unread' | 'favorites' | 'archived' | 'series';
 export type SortType = 'date-desc' | 'date-asc' | 'author' | 'length';
 
+async function archiveMedia(url: string, userId: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch media: ${response.statusText}`);
+    const blob = await response.blob();
+
+    // Extract extension or default to jpg
+    const urlWithoutQuery = url.split('?')[0];
+    const fileExt = urlWithoutQuery.split('.').pop() || 'jpg';
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
+    const path = `${userId}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('thread-media')
+      .upload(path, blob, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('thread-media')
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  } catch (e) {
+    console.error('Media archiving failed for:', url, e);
+    return url; // Fallback to original URL
+  }
+}
+
 // Create the main threads store
 function createThreadsStore() {
   const { subscribe, set, update } = writable<Thread[]>([]);
@@ -79,12 +111,23 @@ function createThreadsStore() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      // Archive media to Supabase Storage
+      const archivedTweets = await Promise.all(thread.tweets.map(async (tweet) => {
+        if (tweet.mediaUrls && tweet.mediaUrls.length > 0) {
+          const newMediaUrls = await Promise.all(
+            tweet.mediaUrls.map(url => archiveMedia(url, user.id))
+          );
+          return { ...tweet, mediaUrls: newMediaUrls };
+        }
+        return tweet;
+      }));
+
       const { error } = await supabase.from('threads').insert({
         user_id: user.id,
         title: thread.title,
         author: thread.author,
         url: thread.url,
-        tweets: thread.tweets,
+        tweets: archivedTweets,
         tags: thread.tags,
         is_favorite: false,
         is_archived: false,
