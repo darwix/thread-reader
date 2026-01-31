@@ -464,7 +464,7 @@
   </div>
 {/if}
 
-<script context="module">
+<script context="module" lang="ts">
   function formatContent(text: string): string {
     // Basic URL regex
     const urlRegex = /(https?:\/\/[^\s]+)/g;
